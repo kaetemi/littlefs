@@ -1281,7 +1281,8 @@ static int lfs_dir_getinfo(lfs_t *lfs, lfs_mdir_t *dir,
     }
     lfs_ctz_fromle32(&ctz);
 
-    if (lfs_tag_type3(tag) == LFS_TYPE_CTZSTRUCT) {
+    if (lfs_tag_type3(tag) == LFS_TYPE_CTZSTRUCT
+         || lfs_tag_type3(tag) == LFS_TYPE_OPAQUESTRUCT) {
         info->size = ctz.size;
     } else if (lfs_tag_type3(tag) == LFS_TYPE_INLINESTRUCT) {
         info->size = lfs_tag_size(tag);
@@ -3210,7 +3211,14 @@ static int lfs_file_rawsync(lfs_t *lfs, lfs_file_t *file) {
         const void *buffer;
         lfs_size_t size;
         struct lfs_ctz ctz;
-        if (file->flags & LFS_F_INLINE) {
+        if (file->flags & LFS_F_OPAQUE) {
+            // update the opaque reference
+            type = LFS_TYPE_OPAQUESTRUCT;
+            ctz = file->ctz;
+            lfs_ctz_tole32(&ctz);
+            buffer = &ctz;
+            size = sizeof(ctz);
+        } else if (file->flags & LFS_F_INLINE) {
             // inline the whole file
             type = LFS_TYPE_INLINESTRUCT;
             buffer = file->cache.buffer;
@@ -4299,6 +4307,16 @@ int lfs_fs_rawtraverse(lfs_t *lfs,
                         ctz.head, ctz.size, cb, data);
                 if (err) {
                     return err;
+                }
+            } else if (lfs_tag_type3(tag) == LFS_TYPE_OPAQUESTRUCT) {
+                if (ctz.size) {
+                    lfs_block_t blast = ctz.head + ((ctz.size - 1) / lfs->cfg->block_size);
+                    for (lfs_block_t i = ctz.head; i < blast + 1; i++) {
+                        err = cb(data, i);
+                        if (err) {
+                            return err;
+                        }
+                    }
                 }
             } else if (includeorphans &&
                     lfs_tag_type3(tag) == LFS_TYPE_DIRSTRUCT) {

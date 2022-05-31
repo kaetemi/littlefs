@@ -109,6 +109,7 @@ enum lfs_type {
     LFS_TYPE_DELETE         = 0x4ff,
     LFS_TYPE_SUPERBLOCK     = 0x0ff,
     LFS_TYPE_DIRSTRUCT      = 0x200,
+    LFS_TYPE_OPAQUESTRUCT   = 0x203,
     LFS_TYPE_CTZSTRUCT      = 0x202,
     LFS_TYPE_INLINESTRUCT   = 0x201,
     LFS_TYPE_SOFTTAIL       = 0x600,
@@ -144,6 +145,7 @@ enum lfs_open_flags {
     LFS_F_ERRED   = 0x080000, // An error occurred during write
 #endif
     LFS_F_INLINE  = 0x100000, // Currently inlined in directory entry
+    LFS_F_OPAQUE  = 0x200000, // An opaque area in the filesystem
 };
 
 // File seek flags
