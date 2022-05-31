@@ -3550,13 +3550,28 @@ static int lfs_file_rawtruncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
         return LFS_ERR_INVAL;
     }
 
-    if (file->flags & LFS_F_FLAT) {
-        // truncating flat files is not yet implemented
-        return LFS_ERR_INVAL;
-    } 
-
     lfs_off_t pos = file->pos;
     lfs_off_t oldsize = lfs_file_rawsize(lfs, file);
+
+    if (file->flags & LFS_F_FLAT) {
+        if (size == oldsize) {
+            // noop
+            return 0;
+        } else if (size < oldsize) {
+            // reduce the file's size
+            if (pos) {
+                // seeking not yet implemented
+                return LFS_ERR_INVAL;
+            }
+            file->ctz.size = size;
+            file->flags |= LFS_F_DIRTY;
+            return 0;
+        } else {
+            // attempting to extend flat files is not yet implemented
+            return LFS_ERR_INVAL;
+        }
+    }
+
     if (size < oldsize) {
         // need to flush since directly changing metadata
         int err = lfs_file_flush(lfs, file);
@@ -3601,6 +3616,16 @@ static int lfs_file_rawtruncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     }
 
     return 0;
+}
+
+static int lfs_file_rawreserve(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
+    LFS_ASSERT((file->flags & LFS_O_WRONLY) == LFS_O_WRONLY);
+
+    if (size > LFS_FILE_MAX) {
+        return LFS_ERR_INVAL;
+    }
+
+    return LFS_ERR_INVAL;
 }
 #endif
 
@@ -5645,6 +5670,23 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     err = lfs_file_rawtruncate(lfs, file, size);
 
     LFS_TRACE("lfs_file_truncate -> %d", err);
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+
+int lfs_file_reserve(lfs_t *lfs, lfs_file_t *file, lfs_off_t size)
+{
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+    LFS_TRACE("lfs_file_reserve(%p, %p, %"PRIu32")",
+        (void*)lfs, (void*)file, size);
+    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+
+    err = lfs_file_rawreserve(lfs, file, size);
+
+    LFS_TRACE("lfs_file_reserve -> %d", err);
     LFS_UNLOCK(lfs->cfg);
     return err;
 }

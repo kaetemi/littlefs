@@ -590,6 +590,22 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
 int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size);
 #endif
 
+// Reserve a flat storage area of the specified size
+//
+// Reserves a flat fixed-size area in the storage of the specified size.
+// The area is not usable as a real file. The reserved blocks can be
+// used directly.
+// 
+// Any previous contents of the file will be discarded entirely.
+// To turn the file back into a regular file, set its size to 0.
+// 
+// After writing to a newly reserved area, close must be called to
+// commit the reservation to the storage. If the file should not be
+// committed due to any error, flag LFS_F_ERRED before closing.
+//
+// Returns a negative error code on failure.
+int lfs_file_reserve(lfs_t *lfs, lfs_file_t *file, lfs_off_t size);
+
 // Return the position of the file
 //
 // Equivalent to lfs_file_seek(lfs, file, 0, LFS_SEEK_CUR)
