@@ -2986,6 +2986,9 @@ static int lfs_file_rawopencfg(lfs_t *lfs, lfs_file_t *file,
                 goto cleanup;
             }
         }
+    } else if (lfs_tag_type3(tag) == LFS_TYPE_FLATSTRUCT) {
+        // mark this as a flat file
+        file->flags |= LFS_F_FLAT;
     }
 
     return 0;
@@ -3121,6 +3124,11 @@ static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
 #ifndef LFS_READONLY
     if (file->flags & LFS_F_WRITING) {
         lfs_off_t pos = file->pos;
+
+        if (file->flags & LFS_F_FLAT) {
+            // flat file access not yet implemented
+            return LFS_ERR_INVAL;
+        }
 
         if (!(file->flags & LFS_F_INLINE)) {
             // copy over anything after current branch
@@ -3267,6 +3275,10 @@ static lfs_ssize_t lfs_file_flushedread(lfs_t *lfs, lfs_file_t *file,
         // check if we need a new block
         if (!(file->flags & LFS_F_READING) ||
                 file->off == lfs->cfg->block_size) {
+            if (file->flags & LFS_F_FLAT) {
+                // reading flat files is not yet implemented
+                return LFS_ERR_INVAL;
+            } 
             if (!(file->flags & LFS_F_INLINE)) {
                 int err = lfs_ctz_find(lfs, NULL, &file->cache,
                         file->ctz.head, file->ctz.size,
@@ -3493,6 +3505,11 @@ static lfs_soff_t lfs_file_rawseek(lfs_t *lfs, lfs_file_t *file,
         return npos;
     }
 
+    if (file->flags & LFS_F_FLAT) {
+        // seeking flat files is not yet implemented
+        return LFS_ERR_INVAL;
+    } 
+
     // if we're only reading and our new offset is still in the file's cache
     // we can avoid flushing and needing to reread the data
     if (
@@ -3532,6 +3549,11 @@ static int lfs_file_rawtruncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     if (size > LFS_FILE_MAX) {
         return LFS_ERR_INVAL;
     }
+
+    if (file->flags & LFS_F_FLAT) {
+        // truncating flat files is not yet implemented
+        return LFS_ERR_INVAL;
+    } 
 
     lfs_off_t pos = file->pos;
     lfs_off_t oldsize = lfs_file_rawsize(lfs, file);
